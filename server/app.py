@@ -3,6 +3,7 @@
 from flask import Flask, jsonify, request, make_response
 from flask_migrate import Migrate
 from flask_restful import Api, Resource
+from werkzeug.exceptions import NotFound
 
 from models import db, Plant
 
@@ -47,8 +48,45 @@ class PlantByID(Resource):
         plant = Plant.query.filter_by(id=id).first().to_dict()
         return make_response(jsonify(plant), 200)
 
+    def patch(self,id):
+        plant = Plant.query.filter_by(id=id).first()
+        if plant:
+            for attr in request.form:
+                setattr(plant, attr, request.form.get(attr))
+            setattr(plant, "is_in_stock", False)
+            db.session.add(plant)
+            db.session.commit()
+            plant_dict = plant.to_dict()
+            return make_response(plant_dict, 200)
+        else:
+            raise NotFound
+
+    def delete(self,id):
+        plant = Plant.query.filter_by(id=id).first()
+        if plant:
+            db.session.delete(plant)
+            db.session.commit()
+            response_body = {
+                "delete_successful": True,
+                "message": "Delete successful!"
+            }
+
+            return make_response('', 204)
+        else:
+            raise NotFound
+
+
+
 
 api.add_resource(PlantByID, '/plants/<int:id>')
+
+@app.errorhandler(NotFound)
+def handle_not_found(e):
+    response = make_response(
+        "Not Found: The requested resource does not exist.",
+        404
+    )
+    return response
 
 
 if __name__ == '__main__':
